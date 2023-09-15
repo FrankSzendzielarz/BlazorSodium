@@ -16,8 +16,8 @@
       <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
       <IncludeSymbols>True</IncludeSymbols>
       <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-      <Version>1.2.5</Version>
-      <PackageVersion>1.2.5</PackageVersion>
+      <Version>1.2.8</Version>
+      <PackageVersion>1.2.8</PackageVersion>
    </PropertyGroup>
 
    <ItemGroup>

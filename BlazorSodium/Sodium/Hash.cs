@@ -1,4 +1,5 @@
-﻿using System.Runtime.Versioning;
+﻿using BlazorSodium.Sodium.Models;
+using System.Runtime.Versioning;
 
 namespace BlazorSodium.Sodium
 {
@@ -24,19 +25,8 @@ namespace BlazorSodium.Sodium
          => Crypto_Hash_Interop(message);
 
 
-       public static byte[] Crypto_Hash_Sha256(byte[] message)
-         => Crypto_Hash_Sha256_Interop(message);
 
 
-        /* Missing from the sodium module:
-         * - crypto_hash_sha256
-         * - crypto_hash_sha256_final
-         * - crypto_hash_sha256_init
-         * - crypto_hash_sha256_update
-         * - crypto_hash_sha512
-         * - crypto_hash_sha512_final
-         * - crypto_hash_sha512_init
-         * - crypto_hash_sha512_update
-        */
+
     }
 }

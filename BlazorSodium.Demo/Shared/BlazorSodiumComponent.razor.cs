@@ -1,4 +1,8 @@
-﻿using BlazorSodium.Services;
+﻿using Algorand.Algod.Model.Transactions;
+using Algorand.Algod;
+using Algorand.Utils;
+using Algorand;
+using BlazorSodium.Services;
 using BlazorSodium.Sodium;
 using BlazorSodium.Sodium.Models;
 using Microsoft.AspNetCore.Components;
@@ -9,16 +13,25 @@ using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Threading.Tasks;
+using Algorand.Algod.Model;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace BlazorSodium.Demo.Shared
 {
-   [SupportedOSPlatform("browser")]
+    
+    [SupportedOSPlatform("browser")]
    public partial class BlazorSodiumComponent : ComponentBase
    {
-      [Inject]
+        private const int BITS_PER_WORD = 11;
+        private const int CHECKSUM_LEN_WORDS = 1;
+        private const int KEY_LEN_BYTES = 32;
+        private const int MNEM_LEN_WORDS = 25; // includes checksum word
+        private const int PADDING_ZEROS = BITS_PER_WORD - ((KEY_LEN_BYTES * 8) % BITS_PER_WORD);
+        private const char MNEMONIC_DELIM = ' ';
+        [Inject]
       IBlazorSodiumService BlazorSodiumService { get; set; }
-
-      protected override async Task OnInitializedAsync()
+    
+        protected override async Task OnInitializedAsync()
       {
          await BlazorSodiumService.InitializeAsync();
          Sodium.Sodium.PrintSodium();
@@ -51,10 +64,93 @@ namespace BlazorSodium.Demo.Shared
       private string SaltString { get; set; }
       protected byte[] Salt { get; set; }
 
-      [SupportedOSPlatform("browser")]
-      protected void GenerateRandomSalt()
+      
+       
+        private  int[] ToUintNArray(byte[] arr)
+        {
+            int buffer = 0;
+            int numBits = 0;
+            int[] ret = new int[(arr.Length * 8 + BITS_PER_WORD - 1) / BITS_PER_WORD];
+
+            int j = 0;
+
+            for (int i = 0; i < arr.Length; i++)
+            {
+                // numBits is how many bits in arr[i] we've processed
+                int v = arr[i];
+                if (v < 0) v += 256; // deal with java signed types
+                buffer |= (v << numBits);
+                numBits += 8;
+                if (numBits >= BITS_PER_WORD)
+                {
+                    // add to output
+                    ret[j] = buffer & 0x7ff;
+                    j++;
+                    // drop from buffer
+                    buffer = buffer >> BITS_PER_WORD;
+                    numBits -= BITS_PER_WORD;
+                }
+            }
+            if (numBits != 0)
+            {
+                ret[j] = buffer & 0x7ff;
+            }
+            return ret;
+        }
+
+        
+        [SupportedOSPlatform("browser")]
+        protected async Task GenerateRandomSalt()
       {
-         Salt = new byte[16];
+            byte[] data = Encoding.UTF8.GetBytes("test");
+            Sha512256.Compute(data, out byte[] hash);
+       //     byte[] hash = Hash.Crypto_Hash_Sha256(data);
+            
+      
+
+            var ALGOD_API_ADDR = "http://localhost:4001/";
+            var ALGOD_API_TOKEN = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+            // This boilerplate creates an Account object with a private key represented by a mnemnonic.
+            //
+            //   If using Sandbox, please use the following commands to replace the below mnemonic:
+            //   ./sandbox goal account list
+            //   ./sandbox goal account export -a <address>
+            var src = new Account("arrive transfer silent pole congress loyal snap dirt dwarf relief easily plastic federal found siren point know polar quit very vanish ensure humor abstract broken");
+
+            var DEST_ADDR = "5KFWCRTIJUMDBXELQGMRBGD2OQ2L3ZQ2MB54KT2XOQ3UWPKUU4Y7TQ4X7U";
+
+
+            var httpClient = HttpClientConfigurator.ConfigureHttpClient(ALGOD_API_ADDR, ALGOD_API_TOKEN);
+            DefaultApi algodApiInstance = new DefaultApi(httpClient);
+
+            var supply = await algodApiInstance.GetSupplyAsync();
+
+
+            var accountInfo = await algodApiInstance.AccountInformationAsync(src.Address.ToString(), null, null);
+
+
+
+            var transParams = await algodApiInstance.TransactionParamsAsync();
+
+            var amount = Utils.AlgosToMicroalgos(1);
+            var tx = PaymentTransaction.GetPaymentTransactionFromNetworkTransactionParameters(src.Address, new Address(DEST_ADDR), amount, "pay message", transParams);
+            var signedTx = tx.Sign(src);
+
+
+
+            // send the transaction to the network
+            var id = await Utils.SubmitTransaction(algodApiInstance, signedTx);
+
+
+            var resp = await Utils.WaitTransactionToComplete(algodApiInstance, id.Txid);
+
+
+
+
+
+
+            Salt = new byte[16];
          RandomBytes.RandomBytes_Buf(16).CopyTo(Salt, 0);
          SaltString = Convert.ToHexString(Salt);
       }
@@ -71,9 +167,14 @@ namespace BlazorSodium.Demo.Shared
       }
 
       [SupportedOSPlatform("browser")]
-      protected void GenerateRandomNumber()
+      protected async Task GenerateRandomNumber()
       {
-         uint randomNumber = RandomBytes.RandomBytes_Random();
+
+
+          
+
+
+            uint randomNumber = RandomBytes.RandomBytes_Random();
          Console.WriteLine(randomNumber);
       }
 
